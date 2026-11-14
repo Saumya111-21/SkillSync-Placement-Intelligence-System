@@ -160,3 +160,68 @@ One row per assessment attempt, so repeated attempts are kept.
 | score_percent | | 0 to 100 |
 | assessed_level_id | FK | Points to PROFICIENCY_LEVEL, the level this score maps to |
 | taken_at | | When the attempt happened |
+
+## Group 3: Companies, Recruiters and Jobs
+
+### REVIEW_STATUS
+Lookup table used for admin approval of both companies and jobs.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| status_id | PK | |
+| status_name | UQ | pending, approved, rejected |
+
+### COMPANY
+Company details are stored once here. Jobs reach the company through RECRUITER.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| company_id | PK | |
+| company_name | UQ | |
+| industry | | For example IT Services, Analytics |
+| website | | Optional |
+| status_id | FK | Points to REVIEW_STATUS |
+| reviewed_by | FK | Points to USER_ACCOUNT, must be an admin. Empty until reviewed |
+| reviewed_at | | Empty until reviewed |
+
+### RECRUITER
+Each recruiter belongs to exactly one company.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| recruiter_id | PK | |
+| user_id | FK, UQ | Points to USER_ACCOUNT, one account per recruiter |
+| company_id | FK | Points to COMPANY |
+| full_name | | |
+| designation | | For example HR Manager |
+
+### JOB
+The company is found through RECRUITER, so it is not stored here.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| job_id | PK | |
+| recruiter_id | FK | Points to RECRUITER |
+| title | | For example Data Analyst |
+| description | | |
+| job_type | | full_time or internship |
+| location | | |
+| min_cgpa | | Optional eligibility filter. It is NOT part of the skill score |
+| application_deadline | | |
+| is_open | | Lets a recruiter close a job without deleting it |
+| status_id | FK | Points to REVIEW_STATUS |
+| reviewed_by | FK | Points to USER_ACCOUNT, must be an admin. Empty until reviewed |
+| reviewed_at | | Empty until reviewed |
+| posted_at | | |
+
+### JOB_SKILL
+Resolves the many-to-many link between jobs and skills. It holds the job's current requirements.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| job_id | PK, FK | Points to JOB |
+| skill_id | PK, FK | Points to SKILL |
+| is_mandatory | | True for mandatory, false for preferred |
+| min_level_id | FK | Points to PROFICIENCY_LEVEL, the minimum level required |
+
+If a recruiter edits these rows later, old match results are not affected. Each match stores its own snapshot (Group 4).

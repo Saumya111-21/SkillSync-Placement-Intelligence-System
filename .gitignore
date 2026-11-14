@@ -1,0 +1,16 @@
+# Secrets: never upload these
+.env
+
+# Python clutter
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor and system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Test and cache files
+.pytest_cache/

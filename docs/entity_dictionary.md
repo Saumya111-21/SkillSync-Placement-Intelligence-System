@@ -225,3 +225,173 @@ Resolves the many-to-many link between jobs and skills. It holds the job's curre
 | min_level_id | FK | Points to PROFICIENCY_LEVEL, the minimum level required |
 
 If a recruiter edits these rows later, old match results are not affected. Each match stores its own snapshot (Group 4).
+
+## Group 4: Matching, Applications, Interviews and Placements
+
+### MATCH_CONFIG
+Stores the settings used for a score calculation, so any score can be reproduced.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| config_id | PK | |
+| version_label | UQ | For example v1 |
+| mandatory_weight | | For example 0.70 |
+| preferred_weight | | For example 0.30 |
+| description | | How the score is calculated, in plain words |
+| created_at | | |
+
+Rule: mandatory_weight + preferred_weight must equal 1.
+
+### JOB_MATCH
+One row per calculation. The same student and job can have many rows over time.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| match_id | PK | |
+| student_id | FK | Points to STUDENT |
+| job_id | FK | Points to JOB |
+| config_id | FK | Points to MATCH_CONFIG |
+| mandatory_coverage | | Percentage, 0 to 100 |
+| preferred_coverage | | Percentage, 0 to 100 |
+| overall_score | | Skill-coverage indicator, 0 to 100. Not a hiring probability |
+| calculated_at | | When the calculation ran |
+
+### JOB_MATCH_DETAIL
+One row per required skill per calculation. It is a snapshot, so it copies the values used at that moment.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| match_id | PK, FK | Points to JOB_MATCH |
+| skill_id | PK, FK | Points to SKILL |
+| was_mandatory | | Copied from JOB_SKILL at calculation time |
+| required_level_id | FK | Level required at calculation time |
+| student_level_id | FK | Student's declared level then. Empty if the student had no such skill |
+| evidence_level_id | FK | Highest level supported by evidence then. Empty if none |
+| is_matched | | True if the requirement was met |
+
+Missing skills are the rows where is_matched is false.
+
+### APPLICATION_STAGE
+Lookup table for recruitment stages.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| stage_id | PK | |
+| stage_name | UQ | applied, shortlisted, interview, offered, rejected, withdrawn |
+| stage_order | | Used for sorting |
+
+### APPLICATION
+| Attribute | Key | Notes |
+|---|---|---|
+| application_id | PK | |
+| student_id | FK | Points to STUDENT |
+| job_id | FK | Points to JOB |
+| match_id | FK | Optional. The score the student had when applying |
+| applied_at | | |
+
+Rule: the pair (student_id, job_id) is unique, so a student applies once per job. The current stage is not stored here. It is the latest row in APPLICATION_HISTORY, found through a view.
+
+### APPLICATION_HISTORY
+| Attribute | Key | Notes |
+|---|---|---|
+| history_id | PK | |
+| application_id | FK | Points to APPLICATION |
+| stage_id | FK | Points to APPLICATION_STAGE |
+## Group 4: Matching, Applications, Interviews and Placements
+
+### MATCH_CONFIG
+Stores the settings used for a score calculation, so any score can be reproduced.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| config_id | PK | |
+| version_label | UQ | For example v1 |
+| mandatory_weight | | For example 0.70 |
+| preferred_weight | | For example 0.30 |
+| description | | How the score is calculated, in plain words |
+| created_at | | |
+
+Rule: mandatory_weight + preferred_weight must equal 1.
+
+### JOB_MATCH
+One row per calculation. The same student and job can have many rows over time.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| match_id | PK | |
+| student_id | FK | Points to STUDENT |
+| job_id | FK | Points to JOB |
+| config_id | FK | Points to MATCH_CONFIG |
+| mandatory_coverage | | Percentage, 0 to 100 |
+| preferred_coverage | | Percentage, 0 to 100 |
+| overall_score | | Skill-coverage indicator, 0 to 100. Not a hiring probability |
+| calculated_at | | When the calculation ran |
+
+### JOB_MATCH_DETAIL
+One row per required skill per calculation. It is a snapshot, so it copies the values used at that moment.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| match_id | PK, FK | Points to JOB_MATCH |
+| skill_id | PK, FK | Points to SKILL |
+| was_mandatory | | Copied from JOB_SKILL at calculation time |
+| required_level_id | FK | Level required at calculation time |
+| student_level_id | FK | Student's declared level then. Empty if the student had no such skill |
+| evidence_level_id | FK | Highest level supported by evidence then. Empty if none |
+| is_matched | | True if the requirement was met |
+
+Missing skills are the rows where is_matched is false.
+
+### APPLICATION_STAGE
+Lookup table for recruitment stages.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| stage_id | PK | |
+| stage_name | UQ | applied, shortlisted, interview, offered, rejected, withdrawn |
+| stage_order | | Used for sorting |
+
+### APPLICATION
+| Attribute | Key | Notes |
+|---|---|---|
+| application_id | PK | |
+| student_id | FK | Points to STUDENT |
+| job_id | FK | Points to JOB |
+| match_id | FK | Optional. The score the student had when applying |
+| applied_at | | |
+
+Rule: the pair (student_id, job_id) is unique, so a student applies once per job. The current stage is not stored here. It is the latest row in APPLICATION_HISTORY, found through a view.
+
+### APPLICATION_HISTORY
+| Attribute | Key | Notes |
+|---|---|---|
+| history_id | PK | |
+| application_id | FK | Points to APPLICATION |
+| stage_id | FK | Points to APPLICATION_STAGE |
+| changed_by | FK | Points to USER_ACCOUNT |
+| changed_at | | |
+| remarks | | Optional |
+
+### INTERVIEW
+| Attribute | Key | Notes |
+|---|---|---|
+| interview_id | PK | |
+| application_id | FK | Points to APPLICATION |
+| round_no | | |
+| scheduled_at | | |
+| mode | | online or in_person |
+| outcome | | pending, passed or failed |
+
+Rule: the pair (application_id, round_no) is unique.
+
+### PLACEMENT
+Student, job and company are all found through APPLICATION, so none of them is stored here.
+
+| Attribute | Key | Notes |
+|---|---|---|
+| placement_id | PK | |
+| application_id | FK, UQ | Points to APPLICATION, so one application gives at most one placement |
+| offer_status | | offered, accepted, declined or joined |
+| package_lpa | | Annual package in lakhs |
+| offer_date | | |
+| joining_date | | Optional |

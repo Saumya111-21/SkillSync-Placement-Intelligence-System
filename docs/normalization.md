@@ -379,3 +379,61 @@ Design note: skill_name is not stored here. It would depend on skill_id alone, w
 | RECRUITER | recruiter_id; user_id | BCNF |
 | JOB | job_id | BCNF |
 | JOB_SKILL | (job_id, skill_id) | BCNF |
+
+### Group 4: Matching, Applications, Interviews and Placements
+
+### Table: APPLICATION_STAGE
+Columns: stage_id, stage_name, stage_order
+Candidate keys: stage_id, stage_name
+FDs:
+- stage_id -> stage_name, stage_order
+- stage_name -> stage_id, stage_order
+We do not assume that stage_order is unique, so stage_order is not treated as a key and determines nothing.
+2NF, 3NF: the only non-prime column is stage_order, and it determines no other column.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: APPLICATION
+Columns: application_id, student_id, job_id, match_id, applied_at
+Candidate keys: application_id, (student_id, job_id)
+FDs:
+- application_id -> student_id, job_id, match_id, applied_at
+- (student_id, job_id) -> application_id, match_id, applied_at
+Business rule: a student applies to a job only once, so (student_id, job_id) is unique.
+Note on match_id: a match result belongs to exactly one student and one job. So when match_id is present it determines (student_id, job_id), and therefore the whole row. This makes match_id a candidate key whenever it is not empty. In Phase 4 this is enforced with a UNIQUE constraint on match_id and a composite foreign key (match_id, student_id, job_id) that forces the attached match to belong to the same student and job. A consequence: one match result can be attached to at most one application. Relationship R30 in relationships.md says 1:N and should read 1:0..1. It will be corrected in the clean-up at the end of Phase 3.
+2NF: no non-prime column depends on only part of a candidate key.
+3NF: no non-prime column determines another non-prime column.
+BCNF: the left side of every FD is a candidate key. Result: BCNF.
+Design note: the current stage is NOT stored here. It is the latest row in APPLICATION_HISTORY and is found through a view. A stored copy could disagree with the history. The company is also not stored, because it is found through JOB and RECRUITER.
+
+### Table: APPLICATION_HISTORY
+Columns: history_id, application_id, stage_id, changed_by, changed_at, remarks
+Candidate key: history_id
+FDs:
+- history_id -> application_id, stage_id, changed_by, changed_at, remarks
+We do not assume that (application_id, changed_at) is unique, because no business rule forbids two changes in the same instant.
+2NF: the key has one column.
+3NF: no non-key column determines another.
+BCNF: the only FD has the key on the left. Result: BCNF.
+
+### Table: INTERVIEW
+Columns: interview_id, application_id, round_no, scheduled_at, mode, outcome
+Candidate keys: interview_id, (application_id, round_no)
+FDs:
+- interview_id -> application_id, round_no, scheduled_at, mode, outcome
+- (application_id, round_no) -> interview_id, scheduled_at, mode, outcome
+Business rule: an application has each interview round number only once.
+2NF: scheduled_at, mode and outcome depend on the whole of (application_id, round_no), not on one part.
+3NF: scheduled_at, mode and outcome do not determine each other.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: PLACEMENT
+Columns: placement_id, application_id, offer_status, package_lpa, offer_date, joining_date
+Candidate keys: placement_id, application_id
+FDs:
+- placement_id -> application_id, offer_status, package_lpa, offer_date, joining_date
+- application_id -> placement_id, offer_status, package_lpa, offer_date, joining_date
+Business rule: one application results in at most one placement, so application_id is unique.
+2NF: both candidate keys have one column.
+3NF: the non-prime columns do not determine each other. We do not assume that package_lpa determines anything.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: student, job and company are not stored here. They are found through APPLICATION. Storing them would create transitive dependencies through application_id.

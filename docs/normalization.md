@@ -193,3 +193,56 @@ Design note: overall CGPA is NOT stored in this table. It would depend on studen
 | COURSE | course_id; (department_id, course_name) | BCNF |
 | STUDENT | student_id; user_id; enrollment_no | BCNF |
 | ACADEMIC_RECORD | record_id; (student_id, semester_no) | BCNF |
+
+### Group 2: Skills, Projects and Certifications
+
+### Table: SKILL_CATEGORY
+Columns: category_id, category_name
+Candidate keys: category_id, category_name
+FDs:
+- category_id -> category_name
+- category_name -> category_id
+2NF, 3NF: there are no non-prime columns.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: SKILL
+Columns: skill_id, category_id, skill_name
+Candidate keys: skill_id, skill_name
+FDs:
+- skill_id -> category_id, skill_name
+- skill_name -> skill_id, category_id
+We do not assume that category_id determines anything, because one category groups many skills.
+2NF: both candidate keys have one column.
+3NF: the only non-prime column is category_id. It does not determine any other column.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: category_name is not stored here. It would give skill_id -> category_id -> category_name, a transitive dependency that breaks 3NF. The name is found through SKILL_CATEGORY.
+
+### Table: PROFICIENCY_LEVEL
+Columns: level_id, level_name
+Candidate keys: level_id, level_name
+FDs:
+- level_id -> level_name
+- level_name -> level_id
+2NF, 3NF: there are no non-prime columns.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: STUDENT_SKILL
+Columns: student_id, skill_id, declared_level_id, updated_at
+Candidate key: (student_id, skill_id)
+FDs:
+- (student_id, skill_id) -> declared_level_id, updated_at
+The declared level belongs to the pair. A student can have different levels in different skills, and one skill can have different levels for different students. So neither student_id alone nor skill_id alone determines declared_level_id.
+2NF: no non-prime column depends on only part of the key. Result: 2NF holds.
+3NF: declared_level_id and updated_at do not determine each other.
+BCNF: the only FD has the full key on the left. Result: BCNF.
+Design note: skill_name is not stored here. It would depend on skill_id alone, which is only part of the key, so it would break 2NF. Evidence from projects, certifications and assessments is not stored here either. It is derived through a view, so the same fact is never stored twice.
+
+### Table: STUDENT_PROJECT
+Columns: project_id, student_id, title, description, start_date, end_date, project_url
+Candidate key: project_id
+FDs:
+- project_id -> student_id, title, description, start_date, end_date, project_url
+We do not assume that (student_id, title) is unique, because no business rule says a student cannot reuse a title. We also do not assume that student_id or title alone determines anything.
+2NF: the key has one column.
+3NF: no non-key column determines another.
+BCNF: the only FD has the key on the left. Result: BCNF.

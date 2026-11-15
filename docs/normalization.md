@@ -218,13 +218,17 @@ BCNF: both left sides are candidate keys. Result: BCNF.
 Design note: category_name is not stored here. It would give skill_id -> category_id -> category_name, a transitive dependency that breaks 3NF. The name is found through SKILL_CATEGORY.
 
 ### Table: PROFICIENCY_LEVEL
-Columns: level_id, level_name
-Candidate keys: level_id, level_name
+Columns: level_id, level_name, min_score, max_score
+Candidate keys: level_id, level_name, min_score, max_score
 FDs:
-- level_id -> level_name
-- level_name -> level_id
-2NF, 3NF: there are no non-prime columns.
-BCNF: both left sides are candidate keys. Result: BCNF.
+- level_id -> level_name, min_score, max_score
+- level_name -> level_id, min_score, max_score
+- min_score -> level_id, level_name, max_score
+- max_score -> level_id, level_name, min_score
+The last two FDs hold only because of a business rule: each level has its own score range, and ranges do not overlap, so a given min_score or max_score belongs to exactly one level. In Phase 4 this rule is enforced with UNIQUE constraints on min_score and max_score and a CHECK that min_score <= max_score. Without that rule these two FDs would not hold.
+2NF: all candidate keys have one column.
+3NF, BCNF: every non-prime column set is empty, because all four columns belong to a candidate key. The left side of every FD is a candidate key. Result: BCNF.
+Design note: this table stores the score ranges, so SKILL_ASSESSMENT can derive the level from score_percent without storing it.
 
 ### Table: STUDENT_SKILL
 Columns: student_id, skill_id, declared_level_id, updated_at
@@ -300,7 +304,7 @@ Design note (Option A): the assessed level is NOT stored in this table. It is ca
 |---|---|---|
 | SKILL_CATEGORY | category_id; category_name | BCNF |
 | SKILL | skill_id; skill_name | BCNF |
-| PROFICIENCY_LEVEL | level_id; level_name | BCNF (to be re-verified after adding min_score and max_score) |
+| PROFICIENCY_LEVEL | level_id; level_name; min_score; max_score | BCNF (relies on the non-overlapping score range rule, enforced by constraints) |
 | STUDENT_SKILL | (student_id, skill_id) | BCNF |
 | STUDENT_PROJECT | project_id | BCNF |
 | PROJECT_SKILL | (project_id, skill_id) | BCNF |

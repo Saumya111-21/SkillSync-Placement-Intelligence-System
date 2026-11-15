@@ -160,7 +160,6 @@ One row per assessment attempt, so repeated attempts are kept.
 | student_id | FK | Points to STUDENT |
 | skill_id | FK | Points to SKILL |
 | score_percent | | 0 to 100 |
-
 | taken_at | | When the attempt happened |
 
 ## Group 3: Companies, Recruiters and Jobs

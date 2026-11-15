@@ -246,3 +246,39 @@ We do not assume that (student_id, title) is unique, because no business rule sa
 2NF: the key has one column.
 3NF: no non-key column determines another.
 BCNF: the only FD has the key on the left. Result: BCNF.
+
+### Table: PROJECT_SKILL
+Columns: project_id, skill_id
+Candidate key: (project_id, skill_id)
+FDs: none other than the trivial ones. Every column is part of the key.
+2NF, 3NF: there are no non-prime columns.
+BCNF: there are no non-trivial FDs. Result: BCNF.
+Design note: this is the associative table that resolves the many-to-many link between projects and skills.
+
+### Table: CERTIFICATION
+Columns: certification_id, certification_name, issuing_body
+Candidate keys: certification_id, (certification_name, issuing_body)
+FDs:
+- certification_id -> certification_name, issuing_body
+- (certification_name, issuing_body) -> certification_id
+Neither certification_name alone nor issuing_body alone determines anything, because two issuers can offer certifications with the same name.
+2NF, 3NF: there are no non-prime columns.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: CERTIFICATION_SKILL
+Columns: certification_id, skill_id
+Candidate key: (certification_id, skill_id)
+FDs: none other than the trivial ones. Every column is part of the key.
+2NF, 3NF: there are no non-prime columns.
+BCNF: there are no non-trivial FDs. Result: BCNF.
+Design note: this table was added so the system knows which skills a certification supports. Without it, evidence from certifications could not be tracked.
+
+### Table: STUDENT_CERTIFICATION
+Columns: student_id, certification_id, issue_date, credential_id, credential_url
+Candidate key: (student_id, certification_id)
+FDs:
+- (student_id, certification_id) -> issue_date, credential_id, credential_url
+We do not assume that credential_id is unique or that it determines credential_url, because no business rule says so. Different issuers could reuse the same credential number.
+2NF: the three non-prime columns describe this student's copy of this certification, so they depend on the whole key. No column such as certification_name is stored here, which would depend on certification_id alone.
+3NF: issue_date, credential_id and credential_url do not determine each other.
+BCNF: the only FD has the full key on the left. Result: BCNF.

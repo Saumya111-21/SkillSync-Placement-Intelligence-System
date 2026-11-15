@@ -282,3 +282,29 @@ We do not assume that credential_id is unique or that it determines credential_u
 2NF: the three non-prime columns describe this student's copy of this certification, so they depend on the whole key. No column such as certification_name is stored here, which would depend on certification_id alone.
 3NF: issue_date, credential_id and credential_url do not determine each other.
 BCNF: the only FD has the full key on the left. Result: BCNF.
+
+### Table: SKILL_ASSESSMENT
+Columns: assessment_id, student_id, skill_id, score_percent, taken_at
+Candidate key: assessment_id
+FDs:
+- assessment_id -> student_id, skill_id, score_percent, taken_at
+We do not assume that (student_id, skill_id, taken_at) is a key, because no business rule forbids two attempts at the same moment. One row is kept per attempt, so repeated attempts are preserved.
+2NF: the key has one column.
+3NF: score_percent and taken_at do not determine each other or any other column.
+BCNF: the only FD has the key on the left. Result: BCNF.
+Design note (Option A): the assessed level is NOT stored in this table. It is calculated from score_percent using the ranges min_score and max_score in PROFICIENCY_LEVEL. If a column assessed_level_id existed, we would get score_percent -> assessed_level_id, where score_percent is not a key. That is a transitive dependency and breaks 3NF and BCNF. It would also cause an update anomaly: changing a score range would leave old rows with the wrong level.
+
+### Group 2 summary
+
+| Table | Candidate keys | Highest normal form verified |
+|---|---|---|
+| SKILL_CATEGORY | category_id; category_name | BCNF |
+| SKILL | skill_id; skill_name | BCNF |
+| PROFICIENCY_LEVEL | level_id; level_name | BCNF (to be re-verified after adding min_score and max_score) |
+| STUDENT_SKILL | (student_id, skill_id) | BCNF |
+| STUDENT_PROJECT | project_id | BCNF |
+| PROJECT_SKILL | (project_id, skill_id) | BCNF |
+| CERTIFICATION | certification_id; (certification_name, issuing_body) | BCNF |
+| CERTIFICATION_SKILL | (certification_id, skill_id) | BCNF |
+| STUDENT_CERTIFICATION | (student_id, certification_id) | BCNF |
+| SKILL_ASSESSMENT | assessment_id | BCNF |

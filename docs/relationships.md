@@ -48,3 +48,19 @@ Cardinality: 1:1 = one to one, 1:N = one to many, M:N = many to many.
 | R35 | APPLICATION | PLACEMENT | 1:0..1 | An application results in zero or one placement | PLACEMENT.application_id (FK, unique) |
 
 Note: JOB_MATCH_DETAIL also points to PROFICIENCY_LEVEL three times (required, student and evidence levels), and APPLICATION has the unique pair (student_id, job_id).
+
+## Part 3: Second Halves of Many-to-Many Links and Level Links
+
+Rows R7, R8, R9, R10, R18 and R24 are many-to-many (M:N). In the ER diagram each one is drawn as two one-to-many links that meet at the middle (associative) table. Part 1 and Part 2 list the first link, and this part lists the second link. The last three rows are the level links from JOB_MATCH_DETAIL.
+
+| ID | Entity A | Entity B | Cardinality | Meaning | Implemented by |
+|---|---|---|---|---|---|
+| R36 | SKILL | STUDENT_SKILL | 1:N | A skill appears in many declared-skill rows (second half of R7) | STUDENT_SKILL.skill_id (FK) |
+| R37 | SKILL | PROJECT_SKILL | 1:N | A skill appears in many project-skill rows (second half of R8) | PROJECT_SKILL.skill_id (FK) |
+| R38 | SKILL | CERTIFICATION_SKILL | 1:N | A skill appears in many certification-skill rows (second half of R9) | CERTIFICATION_SKILL.skill_id (FK) |
+| R39 | CERTIFICATION | STUDENT_CERTIFICATION | 1:N | A certification appears in many student-certification rows (second half of R10) | STUDENT_CERTIFICATION.certification_id (FK) |
+| R40 | SKILL | JOB_SKILL | 1:N | A skill appears in many job-requirement rows (second half of R18) | JOB_SKILL.skill_id (FK) |
+| R41 | JOB | JOB_MATCH | 1:N | A job appears in many match calculations (second half of R24) | JOB_MATCH.job_id (FK) |
+| R42 | PROFICIENCY_LEVEL | JOB_MATCH_DETAIL | 1:N | One level is the required level in many match details | JOB_MATCH_DETAIL.required_level_id (FK) |
+| R43 | PROFICIENCY_LEVEL | JOB_MATCH_DETAIL | 1:N (optional) | One level is the student's declared level in many match details. Empty if the student lacked the skill | JOB_MATCH_DETAIL.student_level_id (FK, can be empty) |
+| R44 | PROFICIENCY_LEVEL | JOB_MATCH_DETAIL | 1:N (optional) | One level is the evidence-supported level in many match details. Empty if no evidence existed | JOB_MATCH_DETAIL.evidence_level_id (FK, can be empty) |

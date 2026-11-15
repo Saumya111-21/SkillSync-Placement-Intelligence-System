@@ -87,6 +87,8 @@ Lookup table for skill levels. Used by student skills and by job requirements.
 |---|---|---|
 | level_id | PK | 1 to 4 |
 | level_name | UQ | Beginner, Intermediate, Advanced, Expert |
+| min_score | | Lowest score_percent that maps to this level |
+| max_score | | Highest score_percent that maps to this level. Ranges must not overlap |
 
 ### STUDENT_SKILL
 The level a student declares for a skill. Evidence from projects, certifications and assessments is not stored here. It is derived through a view later.
@@ -158,7 +160,7 @@ One row per assessment attempt, so repeated attempts are kept.
 | student_id | FK | Points to STUDENT |
 | skill_id | FK | Points to SKILL |
 | score_percent | | 0 to 100 |
-| assessed_level_id | FK | Points to PROFICIENCY_LEVEL, the level this score maps to |
+
 | taken_at | | When the attempt happened |
 
 ## Group 3: Companies, Recruiters and Jobs

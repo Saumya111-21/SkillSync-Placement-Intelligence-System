@@ -19,7 +19,7 @@ Cardinality: 1:1 = one to one, 1:N = one to many, M:N = many to many.
 | R11 | STUDENT | SKILL_ASSESSMENT | 1:N | A student takes many assessments | SKILL_ASSESSMENT.student_id (FK) |
 | R12 | SKILL | SKILL_ASSESSMENT | 1:N | A skill is assessed many times | SKILL_ASSESSMENT.skill_id (FK) |
 | R13 | PROFICIENCY_LEVEL | STUDENT_SKILL | 1:N | One level is used by many declared skills | STUDENT_SKILL.declared_level_id (FK) |
-| R14 | PROFICIENCY_LEVEL | SKILL_ASSESSMENT | 1:N | One level is the result of many assessments | SKILL_ASSESSMENT.assessed_level_id (FK) |
+| R14 | (removed) | (removed) | - | Removed in Option A. The assessment level is calculated from score_percent using PROFICIENCY_LEVEL.min_score and max_score | no foreign key |
 
 ## Part 2: Companies, Jobs, Matching and Applications
 

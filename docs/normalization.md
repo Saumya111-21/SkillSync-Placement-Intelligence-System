@@ -312,3 +312,70 @@ Design note (Option A): the assessed level is NOT stored in this table. It is ca
 | CERTIFICATION_SKILL | (certification_id, skill_id) | BCNF |
 | STUDENT_CERTIFICATION | (student_id, certification_id) | BCNF |
 | SKILL_ASSESSMENT | assessment_id | BCNF |
+
+### Group 3: Companies, Recruiters and Jobs
+
+### Table: REVIEW_STATUS
+Columns: status_id, status_name
+Candidate keys: status_id, status_name
+FDs:
+- status_id -> status_name
+- status_name -> status_id
+2NF, 3NF: there are no non-prime columns.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: COMPANY
+Columns: company_id, company_name, industry, website, status_id, reviewed_by, reviewed_at
+Candidate keys: company_id, company_name
+FDs:
+- company_id -> company_name, industry, website, status_id, reviewed_by, reviewed_at
+- company_name -> company_id, industry, website, status_id, reviewed_by, reviewed_at
+We do not assume that website is unique, because no business rule says two company records cannot share a website. We do not assume that industry determines anything, because many companies share an industry.
+2NF: both candidate keys have one column.
+3NF: the non-prime columns (industry, website, status_id, reviewed_by, reviewed_at) do not determine each other.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: the rules "reviewed_by and reviewed_at are empty until the company is reviewed" and "reviewed_by must be an admin" are not functional dependencies. A foreign key cannot check a user's role. They are enforced in Phase 4 with a CHECK constraint and a trigger.
+
+### Table: RECRUITER
+Columns: recruiter_id, user_id, company_id, full_name, designation
+Candidate keys: recruiter_id, user_id
+FDs:
+- recruiter_id -> user_id, company_id, full_name, designation
+- user_id -> recruiter_id, company_id, full_name, designation
+We do not assume that company_id determines anything, because one company employs many recruiters. We do not assume that designation determines anything, because many recruiters share a designation.
+2NF: both candidate keys have one column.
+3NF: company_id, full_name and designation do not determine each other.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: company_name is not stored here. It would give recruiter_id -> company_id -> company_name, a transitive dependency that breaks 3NF. The name is found through COMPANY.
+
+### Table: JOB
+Columns: job_id, recruiter_id, title, description, job_type, location, min_cgpa, application_deadline, is_open, status_id, reviewed_by, reviewed_at, posted_at
+Candidate key: job_id
+FDs:
+- job_id -> recruiter_id, title, description, job_type, location, min_cgpa, application_deadline, is_open, status_id, reviewed_by, reviewed_at, posted_at
+We do not assume that title, location or recruiter_id determines anything. One recruiter posts many jobs, and many jobs can share a title or a location.
+2NF: the key has one column.
+3NF: no non-key column determines another.
+BCNF: the only FD has the key on the left. Result: BCNF.
+Design note: company_id is not stored here. It would give job_id -> recruiter_id -> company_id, a transitive dependency that breaks 3NF. The company is found through RECRUITER. As in COMPANY, the review rules are enforced by a CHECK constraint and a trigger in Phase 4. The minimum CGPA is an eligibility filter only and is not part of the skill score.
+
+### Table: JOB_SKILL
+Columns: job_id, skill_id, is_mandatory, min_level_id
+Candidate key: (job_id, skill_id)
+FDs:
+- (job_id, skill_id) -> is_mandatory, min_level_id
+Whether a skill is mandatory, and the level it needs, belong to the skill for that job. The same skill can be mandatory in one job and preferred in another, so neither job_id alone nor skill_id alone determines is_mandatory or min_level_id.
+2NF: no non-prime column depends on only part of the key. Result: 2NF holds.
+3NF: is_mandatory and min_level_id do not determine each other.
+BCNF: the only FD has the full key on the left. Result: BCNF.
+Design note: skill_name is not stored here. It would depend on skill_id alone, which is only part of the key, so it would break 2NF.
+
+### Group 3 summary
+
+| Table | Candidate keys | Highest normal form verified |
+|---|---|---|
+| REVIEW_STATUS | status_id; status_name | BCNF |
+| COMPANY | company_id; company_name | BCNF |
+| RECRUITER | recruiter_id; user_id | BCNF |
+| JOB | job_id | BCNF |
+| JOB_SKILL | (job_id, skill_id) | BCNF |

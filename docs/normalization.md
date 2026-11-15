@@ -124,3 +124,72 @@ All three tables are in BCNF.
 - COURSE and DEPARTMENT are separate tables, and STUDENT keeps only course_id. The department is found through COURSE.
 - STUDENT_SKILL is a separate table with the key (student_id, skill_id).
 - We use numeric ids instead of names as keys, because names can change or repeat.
+
+## Part 3: Normalization of the SkillSync Tables
+
+Each table is tested on its own. Functional dependencies (FDs) come from the business rules in the entity dictionary, not from guesses. 1NF holds for every table because each column holds a single value and no column is a list.
+
+### Group 1: Accounts and Academics
+
+### Table: USER_ACCOUNT
+Columns: user_id, email, password_hash, role, is_active, created_at
+Candidate keys: user_id, email
+FDs:
+- user_id -> email, password_hash, role, is_active, created_at
+- email -> user_id, password_hash, role, is_active, created_at
+2NF: both candidate keys have one column, so a partial dependency is impossible.
+3NF: the only non-key columns depend directly on a candidate key. No non-key column determines another.
+BCNF: the left side of every FD is a candidate key. Result: BCNF.
+
+### Table: DEPARTMENT
+Columns: department_id, department_name
+Candidate keys: department_id, department_name
+FDs:
+- department_id -> department_name
+- department_name -> department_id
+2NF, 3NF: there are no non-prime columns.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: COURSE
+Columns: course_id, department_id, course_name, duration_years
+Candidate keys: course_id, (department_id, course_name)
+FDs:
+- course_id -> department_id, course_name, duration_years
+- (department_id, course_name) -> course_id, duration_years
+2NF: the only non-prime column is duration_years. It depends on the whole of (department_id, course_name), not on one part. We do NOT assume course_name alone fixes duration_years, because two departments could offer a course with the same name but a different length.
+3NF: duration_years depends directly on a candidate key.
+BCNF: both left sides are candidate keys. Result: BCNF.
+
+### Table: STUDENT
+Columns: student_id, user_id, course_id, enrollment_no, full_name, phone, admission_year
+Candidate keys: student_id, user_id, enrollment_no
+FDs:
+- student_id -> user_id, course_id, enrollment_no, full_name, phone, admission_year
+- user_id -> student_id
+- enrollment_no -> student_id
+We do not assume that phone, full_name or course_id determine anything, because many students can share a course, a name or a phone number.
+2NF: every candidate key has one column.
+3NF: the non-prime columns (course_id, full_name, phone, admission_year) do not determine each other.
+BCNF: every FD has a candidate key on the left. Result: BCNF.
+Design note: department is not stored here. If it were, we would get course_id -> department_id, a transitive dependency that breaks 3NF. The department is found through COURSE.
+
+### Table: ACADEMIC_RECORD
+Columns: record_id, student_id, semester_no, sgpa
+Candidate keys: record_id, (student_id, semester_no)
+FDs:
+- record_id -> student_id, semester_no, sgpa
+- (student_id, semester_no) -> record_id, sgpa
+2NF: sgpa depends on the whole of (student_id, semester_no).
+3NF: sgpa depends directly on a candidate key.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: overall CGPA is NOT stored in this table. It would depend on student_id alone, which is only part of the key (student_id, semester_no). That is a partial dependency and would break 2NF. It would also go out of date when a new semester is added, so we calculate it with a query.
+
+### Group 1 summary
+
+| Table | Candidate keys | Highest normal form verified |
+|---|---|---|
+| USER_ACCOUNT | user_id; email | BCNF |
+| DEPARTMENT | department_id; department_name | BCNF |
+| COURSE | course_id; (department_id, course_name) | BCNF |
+| STUDENT | student_id; user_id; enrollment_no | BCNF |
+| ACADEMIC_RECORD | record_id; (student_id, semester_no) | BCNF |

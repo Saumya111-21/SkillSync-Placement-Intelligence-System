@@ -232,3 +232,118 @@ Table constraint: PRIMARY KEY (job_id, skill_id).
 - RECRUITER.user_id must refer to an account whose role is recruiter.
 - The company of a job is found through RECRUITER. It is never stored in JOB.
 - Students see only jobs that are approved, open and before the deadline. A view provides this list.
+
+## Group 4: Matching, Applications, Interviews and Placements
+
+### Table: MATCH_CONFIG
+| Column | Type | Constraints |
+|---|---|---|
+| config_id | INTEGER IDENTITY | PRIMARY KEY |
+| version_label | VARCHAR(20) | NOT NULL, UNIQUE |
+| mandatory_weight | NUMERIC(3,2) | NOT NULL, CHECK (mandatory_weight BETWEEN 0 AND 1) |
+| description | TEXT | NOT NULL |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+The preferred weight is not stored. It is 1 - mandatory_weight. A config row is never edited after use, so an old score can always be reproduced.
+
+### Table: JOB_MATCH
+| Column | Type | Constraints |
+|---|---|---|
+| match_id | INTEGER IDENTITY | PRIMARY KEY |
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE RESTRICT |
+| job_id | INTEGER | NOT NULL, FOREIGN KEY to JOB(job_id), ON DELETE RESTRICT |
+| config_id | INTEGER | NOT NULL, FOREIGN KEY to MATCH_CONFIG(config_id), ON DELETE RESTRICT |
+| mandatory_coverage | NUMERIC(5,2) | NOT NULL, CHECK (mandatory_coverage BETWEEN 0 AND 100) |
+| preferred_coverage | NUMERIC(5,2) | NOT NULL, CHECK (preferred_coverage BETWEEN 0 AND 100) |
+| overall_score | NUMERIC(5,2) | NOT NULL, CHECK (overall_score BETWEEN 0 AND 100). A skill-coverage indicator, never a hiring probability |
+| calculated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+Table constraint: UNIQUE (match_id, student_id, job_id). This is redundant for identification but is needed as the target of the composite foreign key in APPLICATION.
+Normal form: 2NF. The stored scores are a deliberate result snapshot (see normalization.md). The same student and job can have many rows over time, so (student_id, job_id) is not unique here.
+
+### Table: JOB_MATCH_DETAIL
+| Column | Type | Constraints |
+|---|---|---|
+| match_id | INTEGER | NOT NULL, FOREIGN KEY to JOB_MATCH(match_id), ON DELETE RESTRICT |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+| was_mandatory | BOOLEAN | NOT NULL. Copied from JOB_SKILL at calculation time |
+| required_level_id | SMALLINT | NOT NULL, FOREIGN KEY to PROFICIENCY_LEVEL(level_id), ON DELETE RESTRICT. Copied at calculation time |
+| student_level_id | SMALLINT | optional (empty if the student had no such skill), FOREIGN KEY to PROFICIENCY_LEVEL(level_id), ON DELETE RESTRICT |
+| evidence_level_id | SMALLINT | optional (empty if no evidence), FOREIGN KEY to PROFICIENCY_LEVEL(level_id), ON DELETE RESTRICT |
+| is_matched | BOOLEAN | NOT NULL |
+
+Table constraint: PRIMARY KEY (match_id, skill_id).
+Normal form: 2NF. is_matched is a stored result snapshot. Missing skills are the rows where is_matched is false.
+
+### Table: APPLICATION_STAGE
+| Column | Type | Constraints |
+|---|---|---|
+| stage_id | SMALLINT | PRIMARY KEY, CHECK (stage_id BETWEEN 1 AND 6). Fixed values, not auto-numbered |
+| stage_name | VARCHAR(20) | NOT NULL, UNIQUE |
+| stage_order | SMALLINT | NOT NULL |
+
+Seed data (inserted in Phase 4): 1 applied, 2 shortlisted, 3 interview, 4 offered, 5 rejected, 6 withdrawn.
+
+### Table: APPLICATION
+| Column | Type | Constraints |
+|---|---|---|
+| application_id | INTEGER IDENTITY | PRIMARY KEY |
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE RESTRICT |
+| job_id | INTEGER | NOT NULL, FOREIGN KEY to JOB(job_id), ON DELETE RESTRICT |
+| match_id | INTEGER | optional (can be empty), UNIQUE |
+| applied_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+Table constraints:
+- UNIQUE (student_id, job_id). A student applies to a job only once.
+- FOREIGN KEY (match_id, student_id, job_id) REFERENCES JOB_MATCH (match_id, student_id, job_id). The attached match must belong to the same student and the same job. When match_id is empty, this check is skipped.
+The current stage is not stored. It is the latest row in APPLICATION_HISTORY, found through a view.
+
+### Table: APPLICATION_HISTORY
+| Column | Type | Constraints |
+|---|---|---|
+| history_id | INTEGER IDENTITY | PRIMARY KEY |
+| application_id | INTEGER | NOT NULL, FOREIGN KEY to APPLICATION(application_id), ON DELETE RESTRICT |
+| stage_id | SMALLINT | NOT NULL, FOREIGN KEY to APPLICATION_STAGE(stage_id), ON DELETE RESTRICT |
+| changed_by | INTEGER | NOT NULL, FOREIGN KEY to USER_ACCOUNT(user_id), ON DELETE RESTRICT |
+| changed_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+| remarks | TEXT | optional (can be empty) |
+
+### Table: INTERVIEW
+| Column | Type | Constraints |
+|---|---|---|
+| interview_id | INTEGER IDENTITY | PRIMARY KEY |
+| application_id | INTEGER | NOT NULL, FOREIGN KEY to APPLICATION(application_id), ON DELETE RESTRICT |
+| round_no | SMALLINT | NOT NULL, CHECK (round_no >= 1) |
+| scheduled_at | TIMESTAMPTZ | NOT NULL |
+| mode | VARCHAR(10) | NOT NULL, CHECK (mode IN ('online', 'in_person')) |
+| outcome | VARCHAR(10) | NOT NULL, DEFAULT 'pending', CHECK (outcome IN ('pending', 'passed', 'failed')) |
+
+Table constraint: UNIQUE (application_id, round_no).
+
+### Table: PLACEMENT
+| Column | Type | Constraints |
+|---|---|---|
+| placement_id | INTEGER IDENTITY | PRIMARY KEY |
+| application_id | INTEGER | NOT NULL, UNIQUE, FOREIGN KEY to APPLICATION(application_id), ON DELETE RESTRICT |
+| offer_status | VARCHAR(10) | NOT NULL, CHECK (offer_status IN ('offered', 'accepted', 'declined', 'joined')) |
+| package_lpa | NUMERIC(6,2) | NOT NULL, CHECK (package_lpa > 0) |
+| offer_date | DATE | NOT NULL |
+| joining_date | DATE | optional (can be empty) |
+
+Table constraint: CHECK (joining_date IS NULL OR joining_date >= offer_date).
+UNIQUE on application_id gives the rule "one application results in at most one placement". A student can still have several placements over time, through different applications.
+
+### Group 4 rules for Phase 4 triggers
+- JOB_MATCH and JOB_MATCH_DETAIL rows are insert-only. A trigger blocks UPDATE and DELETE, so history is never rewritten.
+- A trigger checks at insert time that overall_score equals mandatory_weight x mandatory_coverage + (1 - mandatory_weight) x preferred_coverage, and that is_matched agrees with the stored levels.
+- APPLICATION_HISTORY rows are insert-only. When an application is created, a trigger adds its first history row with the stage applied.
+- A placement may be created only if the application has reached the stage offered.
+- changed_by must refer to an account whose role fits the change: a student may only withdraw, a recruiter or admin may change other stages.
+
+## Schema summary
+
+- Total tables: 28.
+- Lookup tables with fixed ids: PROFICIENCY_LEVEL, REVIEW_STATUS, APPLICATION_STAGE. Others: SKILL_CATEGORY.
+- Associative tables: STUDENT_SKILL, PROJECT_SKILL, CERTIFICATION_SKILL, STUDENT_CERTIFICATION, JOB_SKILL, JOB_MATCH_DETAIL.
+- Derived data, never stored as tables: overall CGPA, the assessed level, a skill's evidence status, an application's current stage, the list of open approved jobs. Each is a view in Phase 4.
+- Normal forms: 26 tables in BCNF, 2 (JOB_MATCH and JOB_MATCH_DETAIL) in 2NF by design.

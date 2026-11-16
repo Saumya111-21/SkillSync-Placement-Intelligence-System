@@ -237,11 +237,10 @@ Stores the settings used for a score calculation, so any score can be reproduced
 | config_id | PK | |
 | version_label | UQ | For example v1 |
 | mandatory_weight | | For example 0.70 |
-| preferred_weight | | For example 0.30 |
 | description | | How the score is calculated, in plain words |
 | created_at | | |
 
-Rule: mandatory_weight + preferred_weight must equal 1.
+Rule: preferred weight is not stored. It is calculated as 1 - mandatory_weight, and mandatory_weight must be between 0 and 1.
 
 ### JOB_MATCH
 One row per calculation. The same student and job can have many rows over time.
@@ -287,7 +286,7 @@ Lookup table for recruitment stages.
 | application_id | PK | |
 | student_id | FK | Points to STUDENT |
 | job_id | FK | Points to JOB |
-| match_id | FK | Optional. The score the student had when applying |
+| match_id | FK, UQ | Optional. The score the student had when applying. One match result can be attached to at most one application |
 | applied_at | | |
 
 Rule: the pair (student_id, job_id) is unique, so a student applies once per job. The current stage is not stored here. It is the latest row in APPLICATION_HISTORY, found through a view.

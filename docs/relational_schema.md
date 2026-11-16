@@ -62,3 +62,106 @@ Table constraint: UNIQUE (student_id, semester_no).
 ### Group 1 rules for Phase 4 triggers
 - STUDENT.user_id must refer to an account whose role is student.
 - Overall CGPA is not stored. It is calculated from ACADEMIC_RECORD by a view.
+
+## Group 2: Skills, Projects and Certifications
+
+### Table: SKILL_CATEGORY
+| Column | Type | Constraints |
+|---|---|---|
+| category_id | INTEGER IDENTITY | PRIMARY KEY |
+| category_name | VARCHAR(50) | NOT NULL, UNIQUE |
+
+### Table: SKILL
+| Column | Type | Constraints |
+|---|---|---|
+| skill_id | INTEGER IDENTITY | PRIMARY KEY |
+| category_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL_CATEGORY(category_id), ON DELETE RESTRICT |
+| skill_name | VARCHAR(100) | NOT NULL, UNIQUE |
+
+### Table: PROFICIENCY_LEVEL
+| Column | Type | Constraints |
+|---|---|---|
+| level_id | SMALLINT | PRIMARY KEY, CHECK (level_id BETWEEN 1 AND 4). Fixed values, not auto-numbered |
+| level_name | VARCHAR(20) | NOT NULL, UNIQUE |
+| min_score | SMALLINT | NOT NULL, UNIQUE, CHECK (min_score BETWEEN 0 AND 100) |
+| max_score | SMALLINT | NOT NULL, UNIQUE, CHECK (max_score BETWEEN 0 AND 100) |
+
+Table constraints:
+- CHECK (min_score <= max_score).
+- EXCLUDE USING gist (int4range(min_score, max_score, '[]') WITH &&). PostgreSQL rejects two levels whose score ranges overlap.
+
+Seed data (inserted in Phase 4): 1 Beginner 0-39, 2 Intermediate 40-64, 3 Advanced 65-84, 4 Expert 85-100. The four ranges together cover every whole score from 0 to 100 with no gap.
+
+### Table: STUDENT_SKILL
+| Column | Type | Constraints |
+|---|---|---|
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE CASCADE |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+| declared_level_id | SMALLINT | NOT NULL, FOREIGN KEY to PROFICIENCY_LEVEL(level_id), ON DELETE RESTRICT |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+Table constraint: PRIMARY KEY (student_id, skill_id).
+
+### Table: STUDENT_PROJECT
+| Column | Type | Constraints |
+|---|---|---|
+| project_id | INTEGER IDENTITY | PRIMARY KEY |
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE CASCADE |
+| title | VARCHAR(200) | NOT NULL |
+| description | TEXT | NOT NULL |
+| start_date | DATE | NOT NULL |
+| end_date | DATE | optional (can be empty) |
+| project_url | VARCHAR(500) | optional (can be empty) |
+
+Table constraint: CHECK (end_date IS NULL OR end_date >= start_date).
+
+### Table: PROJECT_SKILL
+| Column | Type | Constraints |
+|---|---|---|
+| project_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT_PROJECT(project_id), ON DELETE CASCADE |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+
+Table constraint: PRIMARY KEY (project_id, skill_id).
+
+### Table: CERTIFICATION
+| Column | Type | Constraints |
+|---|---|---|
+| certification_id | INTEGER IDENTITY | PRIMARY KEY |
+| certification_name | VARCHAR(200) | NOT NULL |
+| issuing_body | VARCHAR(100) | NOT NULL |
+
+Table constraint: UNIQUE (certification_name, issuing_body).
+
+### Table: CERTIFICATION_SKILL
+| Column | Type | Constraints |
+|---|---|---|
+| certification_id | INTEGER | NOT NULL, FOREIGN KEY to CERTIFICATION(certification_id), ON DELETE CASCADE |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+
+Table constraint: PRIMARY KEY (certification_id, skill_id).
+
+### Table: STUDENT_CERTIFICATION
+| Column | Type | Constraints |
+|---|---|---|
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE CASCADE |
+| certification_id | INTEGER | NOT NULL, FOREIGN KEY to CERTIFICATION(certification_id), ON DELETE RESTRICT |
+| issue_date | DATE | NOT NULL, CHECK (issue_date <= CURRENT_DATE) |
+| credential_id | VARCHAR(100) | optional (can be empty) |
+| credential_url | VARCHAR(500) | optional (can be empty) |
+
+Table constraint: PRIMARY KEY (student_id, certification_id).
+
+### Table: SKILL_ASSESSMENT
+| Column | Type | Constraints |
+|---|---|---|
+| assessment_id | INTEGER IDENTITY | PRIMARY KEY |
+| student_id | INTEGER | NOT NULL, FOREIGN KEY to STUDENT(student_id), ON DELETE CASCADE |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+| score_percent | SMALLINT | NOT NULL, CHECK (score_percent BETWEEN 0 AND 100). A whole number, so every score falls inside exactly one level range |
+| taken_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+The assessed level is not stored. A view finds it by joining score_percent to the min_score and max_score of PROFICIENCY_LEVEL.
+
+### Group 2 rules for Phase 4
+- Evidence for a skill (project, certification, assessment) is derived by a view. Nothing is stored twice.
+- A project, certification or assessment never proves expertise by itself. The view reports the evidence source, and the matching engine decides how to use it.

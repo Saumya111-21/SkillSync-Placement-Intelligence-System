@@ -165,3 +165,70 @@ The assessed level is not stored. A view finds it by joining score_percent to th
 ### Group 2 rules for Phase 4
 - Evidence for a skill (project, certification, assessment) is derived by a view. Nothing is stored twice.
 - A project, certification or assessment never proves expertise by itself. The view reports the evidence source, and the matching engine decides how to use it.
+
+## Group 3: Companies, Recruiters and Jobs
+
+### Table: REVIEW_STATUS
+| Column | Type | Constraints |
+|---|---|---|
+| status_id | SMALLINT | PRIMARY KEY, CHECK (status_id BETWEEN 1 AND 3). Fixed values, not auto-numbered |
+| status_name | VARCHAR(20) | NOT NULL, UNIQUE |
+
+Seed data (inserted in Phase 4): 1 pending, 2 approved, 3 rejected.
+
+### Table: COMPANY
+| Column | Type | Constraints |
+|---|---|---|
+| company_id | INTEGER IDENTITY | PRIMARY KEY |
+| company_name | VARCHAR(150) | NOT NULL, UNIQUE |
+| industry | VARCHAR(100) | NOT NULL |
+| website | VARCHAR(300) | optional (can be empty) |
+| status_id | SMALLINT | NOT NULL, DEFAULT 1, FOREIGN KEY to REVIEW_STATUS(status_id), ON DELETE RESTRICT |
+| reviewed_by | INTEGER | optional (can be empty), FOREIGN KEY to USER_ACCOUNT(user_id), ON DELETE RESTRICT |
+| reviewed_at | TIMESTAMPTZ | optional (can be empty) |
+
+Table constraint (review consistency): CHECK ((status_id = 1 AND reviewed_by IS NULL AND reviewed_at IS NULL) OR (status_id <> 1 AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)).
+
+### Table: RECRUITER
+| Column | Type | Constraints |
+|---|---|---|
+| recruiter_id | INTEGER IDENTITY | PRIMARY KEY |
+| user_id | INTEGER | NOT NULL, UNIQUE, FOREIGN KEY to USER_ACCOUNT(user_id), ON DELETE RESTRICT |
+| company_id | INTEGER | NOT NULL, FOREIGN KEY to COMPANY(company_id), ON DELETE RESTRICT |
+| full_name | VARCHAR(150) | NOT NULL |
+| designation | VARCHAR(100) | NOT NULL |
+
+### Table: JOB
+| Column | Type | Constraints |
+|---|---|---|
+| job_id | INTEGER IDENTITY | PRIMARY KEY |
+| recruiter_id | INTEGER | NOT NULL, FOREIGN KEY to RECRUITER(recruiter_id), ON DELETE RESTRICT |
+| title | VARCHAR(200) | NOT NULL |
+| description | TEXT | NOT NULL |
+| job_type | VARCHAR(15) | NOT NULL, CHECK (job_type IN ('full_time', 'internship')) |
+| location | VARCHAR(100) | NOT NULL |
+| min_cgpa | NUMERIC(4,2) | optional (can be empty), CHECK (min_cgpa BETWEEN 0 AND 10). An eligibility filter only, never part of the skill score |
+| application_deadline | DATE | NOT NULL |
+| is_open | BOOLEAN | NOT NULL, DEFAULT TRUE |
+| status_id | SMALLINT | NOT NULL, DEFAULT 1, FOREIGN KEY to REVIEW_STATUS(status_id), ON DELETE RESTRICT |
+| reviewed_by | INTEGER | optional (can be empty), FOREIGN KEY to USER_ACCOUNT(user_id), ON DELETE RESTRICT |
+| reviewed_at | TIMESTAMPTZ | optional (can be empty) |
+| posted_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() |
+
+Table constraint (review consistency): CHECK ((status_id = 1 AND reviewed_by IS NULL AND reviewed_at IS NULL) OR (status_id <> 1 AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)).
+
+### Table: JOB_SKILL
+| Column | Type | Constraints |
+|---|---|---|
+| job_id | INTEGER | NOT NULL, FOREIGN KEY to JOB(job_id), ON DELETE CASCADE |
+| skill_id | INTEGER | NOT NULL, FOREIGN KEY to SKILL(skill_id), ON DELETE RESTRICT |
+| is_mandatory | BOOLEAN | NOT NULL |
+| min_level_id | SMALLINT | NOT NULL, FOREIGN KEY to PROFICIENCY_LEVEL(level_id), ON DELETE RESTRICT |
+
+Table constraint: PRIMARY KEY (job_id, skill_id).
+
+### Group 3 rules for Phase 4 triggers
+- COMPANY.reviewed_by and JOB.reviewed_by must refer to an account whose role is admin.
+- RECRUITER.user_id must refer to an account whose role is recruiter.
+- The company of a job is found through RECRUITER. It is never stored in JOB.
+- Students see only jobs that are approved, open and before the deadline. A view provides this list.

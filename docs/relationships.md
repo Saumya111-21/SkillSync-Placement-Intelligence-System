@@ -40,7 +40,7 @@ Cardinality: 1:1 = one to one, 1:N = one to many, M:N = many to many.
 | R27 | SKILL | JOB_MATCH_DETAIL | 1:N | One skill appears in many match details | JOB_MATCH_DETAIL.skill_id (FK) |
 | R28 | STUDENT | APPLICATION | 1:N | A student submits many applications | APPLICATION.student_id (FK) |
 | R29 | JOB | APPLICATION | 1:N | A job receives many applications | APPLICATION.job_id (FK) |
-| R30 | JOB_MATCH | APPLICATION | 1:N (optional) | One match result can be attached to an application | APPLICATION.match_id (FK, can be empty) |
+| R30 | JOB_MATCH | APPLICATION | 1:0..1 | One match result can be attached to at most one application. An application has at most one attached match | APPLICATION.match_id (FK, unique, can be empty) |
 | R31 | APPLICATION | APPLICATION_HISTORY | 1:N | An application has many history records | APPLICATION_HISTORY.application_id (FK) |
 | R32 | APPLICATION_STAGE | APPLICATION_HISTORY | 1:N | One stage appears in many history records | APPLICATION_HISTORY.stage_id (FK) |
 | R33 | USER_ACCOUNT | APPLICATION_HISTORY | 1:N | A user makes many stage changes | APPLICATION_HISTORY.changed_by (FK) |

@@ -437,3 +437,61 @@ Business rule: one application results in at most one placement, so application_
 3NF: the non-prime columns do not determine each other. We do not assume that package_lpa determines anything.
 BCNF: both left sides are candidate keys. Result: BCNF.
 Design note: student, job and company are not stored here. They are found through APPLICATION. Storing them would create transitive dependencies through application_id.
+
+### Table: MATCH_CONFIG
+Columns: config_id, version_label, mandatory_weight, description, created_at
+Candidate keys: config_id, version_label
+FDs:
+- config_id -> version_label, mandatory_weight, description, created_at
+- version_label -> config_id, mandatory_weight, description, created_at
+2NF: both candidate keys have one column.
+3NF: no non-prime column determines another.
+BCNF: both left sides are candidate keys. Result: BCNF.
+Design note: the original design also stored preferred_weight. Because the two weights must add up to 1, we would have mandatory_weight -> preferred_weight, where mandatory_weight is not a key. That breaks 3NF, so preferred_weight was removed. It is calculated as 1 - mandatory_weight. A CHECK constraint in Phase 4 keeps mandatory_weight between 0 and 1.
+
+### Table: JOB_MATCH
+Columns: match_id, student_id, job_id, config_id, mandatory_coverage, preferred_coverage, overall_score, calculated_at
+Candidate key: match_id
+FDs:
+- match_id -> student_id, job_id, config_id, mandatory_coverage, preferred_coverage, overall_score, calculated_at
+- (config_id, mandatory_coverage, preferred_coverage) -> overall_score
+The second FD comes from the scoring rule: overall_score = mandatory_weight x mandatory_coverage + preferred_weight x preferred_coverage, and the weights are fixed by config_id. Its left side is not a key.
+2NF: the key has one column, so a partial dependency is impossible.
+3NF: NOT satisfied. overall_score depends on non-key columns.
+BCNF: NOT satisfied for the same reason.
+Result: 2NF.
+Deliberate denormalization: overall_score and the two coverage columns are stored as a result snapshot. The coverage values can also be recomputed from JOB_MATCH_DETAIL rows. We keep them for these reasons:
+- Old results must stay reproducible even if the matching rules change later.
+- A student can compare a past score with a current one without recalculating history.
+- Phase 10 measures stored values against recalculated values.
+Controls: rows are written once and never edited (a Phase 4 trigger blocks UPDATE), so the stored values cannot become stale. A second trigger checks at insert time that overall_score equals the calculated value. The score is a skill-coverage indicator, never a hiring probability.
+
+### Table: JOB_MATCH_DETAIL
+Columns: match_id, skill_id, was_mandatory, required_level_id, student_level_id, evidence_level_id, is_matched
+Candidate key: (match_id, skill_id)
+FDs:
+- (match_id, skill_id) -> was_mandatory, required_level_id, student_level_id, evidence_level_id, is_matched
+- (required_level_id, student_level_id, evidence_level_id) -> is_matched
+The second FD comes from the matching rule, which compares the student's levels with the required level. Its left side is not a key.
+2NF: holds. Each non-prime column describes one skill within one match. match_id alone does not determine them, because a match has many skills. skill_id alone does not determine them, because many matches include the same skill.
+3NF: NOT satisfied. is_matched depends on non-key columns.
+BCNF: NOT satisfied for the same reason.
+Result: 2NF.
+Deliberate snapshot: was_mandatory, required_level_id, student_level_id and evidence_level_id are copies of what was true at calculation time. They are not redundant with JOB_SKILL or STUDENT_SKILL, because those tables change over time and these rows must not. is_matched is derived from them and is stored for the same reproducibility reasons as in JOB_MATCH. Missing skills are the rows where is_matched is false. The same controls apply: rows are insert-only, and a trigger checks is_matched at insert time.
+
+### Group 4 summary
+
+| Table | Candidate keys | Highest normal form verified |
+|---|---|---|
+| MATCH_CONFIG | config_id; version_label | BCNF |
+| JOB_MATCH | match_id | 2NF (deliberate denormalization, see above) |
+| JOB_MATCH_DETAIL | (match_id, skill_id) | 2NF (deliberate denormalization, see above) |
+| APPLICATION_STAGE | stage_id; stage_name | BCNF |
+| APPLICATION | application_id; (student_id, job_id) | BCNF |
+| APPLICATION_HISTORY | history_id | BCNF |
+| INTERVIEW | interview_id; (application_id, round_no) | BCNF |
+| PLACEMENT | placement_id; application_id | BCNF |
+
+## Part 4: Overall Result
+
+Of the 28 tables, 26 are verified in BCNF and 2 (JOB_MATCH and JOB_MATCH_DETAIL) are in 2NF because they deliberately store calculated result snapshots. These two are documented, constrained by insert-only triggers, and measured in the Phase 10 experiments.

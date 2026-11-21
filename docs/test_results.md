@@ -38,3 +38,30 @@ Notes:
 - The identity numbers (for example user 8 in T10) are not rolled back, so ids have gaps after rolled-back tests. This is expected PostgreSQL behaviour.
 - These tests cover the five role triggers only. The insert-only and score-check triggers are not written yet, so they are not tested and not listed as passed.
 - The views are created but have not been tested with data yet.
+
+## Trigger tests (set 2: matching history, applications, placements)
+
+Run on 21-11-2026 with tests/test_triggers_2.sql. The setup data and the accepted steps stayed inside one transaction so later tests could use them. Refused tests used a SAVEPOINT. The final ROLLBACK removed all test data.
+
+| Test ID | Feature | Input | Expected result | Actual result | Status |
+|---|---|---|---|---|---|
+| T12 | Stored overall score must match the formula | Insert a match with coverage 80 and 50 and overall_score 90 | Refused by trigger | ERROR: overall_score 90.00 does not match the calculation 71.00 for config 1 | Passed |
+| T13 | Correct score is accepted | Insert a match with coverage 80 and 50 and overall_score 71.00 (0.70 x 80 + 0.30 x 50) | Accepted | INSERT 0 1 | Passed |
+| T14a | Match results are insert-only | UPDATE overall_score of a stored match | Refused by trigger | ERROR: rows in job_match are insert-only: UPDATE is not allowed | Passed |
+| T14b | Match results are insert-only | DELETE a stored match | Refused by trigger | ERROR: rows in job_match are insert-only: DELETE is not allowed | Passed |
+| T15 | A matched skill needs a level that reaches the requirement | Insert a match detail with is_matched true, required level 3, student level 1, no evidence | Refused by trigger | ERROR: skill 1 is marked matched but no stored level reaches the required level | Passed |
+| T16 | Valid match details are accepted | Insert one matched skill (required 2, student level 3) and one missing skill | Both accepted | INSERT 0 1 twice | Passed |
+| T17 | First history row is created automatically | Insert an application with the stored match attached | Accepted, current stage is applied | INSERT 0 1. v_application_current_stage showed applied | Passed |
+| T18a | A student may only apply or withdraw | The owner student writes stage 3 (interview) | Refused by trigger | ERROR: a student can only apply (stage 1) or withdraw (stage 6), not set stage 3 | Passed |
+| T18b | A student may change only their own application | Another student withdraws this application | Refused by trigger | ERROR: a student can change only their own application | Passed |
+| T19 | A recruiter may act only on their own company's jobs | A recruiter of another company shortlists | Refused by trigger | ERROR: a recruiter can change only applications for jobs of their own company | Passed |
+| T20 | A recruiter of the same company may shortlist | The recruiter of the job's company writes stage 2 | Accepted, current stage is shortlisted | INSERT 0 1. v_application_current_stage showed shortlisted | Passed |
+| T21 | A placement needs the stage offered | Insert a placement while the stage is shortlisted | Refused by trigger | ERROR: a placement needs the application to be at stage offered, current stage is 2 | Passed |
+| T22 | Offer, then placement is accepted | Recruiter writes stage 4 (offered), then a placement is inserted | Both accepted | INSERT 0 1 twice | Passed |
+| T23a | Application history is insert-only | UPDATE a history row | Refused by trigger | ERROR: rows in application_history are insert-only: UPDATE is not allowed | Passed |
+| T23b | Application history is insert-only | DELETE a history row | Refused by trigger | ERROR: rows in application_history are insert-only: DELETE is not allowed | Passed |
+
+Notes:
+- These tests also exercised the view v_application_current_stage with real data. The other five views are still untested.
+- Not covered by any test yet: the order of stages (for example, a rejected application returning to shortlisted is not blocked), a recruiter writing stage 1 or 6 (covered by the code, not tested), and the case is_matched false with levels that would have met the requirement. The last one belongs to the Phase 7 matching engine.
+- Identity numbers are not rolled back, so ids have gaps after rolled-back tests. This is expected PostgreSQL behaviour.

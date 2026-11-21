@@ -20,3 +20,21 @@ Notes:
 - PostgreSQL checks check constraints before foreign keys. T5 uses a student_id that does not exist, and the check constraint fired first. So T5 does test the SGPA rule.
 - Identity numbers are not rolled back, so ids may have gaps after rolled-back tests. This is expected PostgreSQL behaviour.
 - These tests show that the rules above are enforced on this installation. They do not yet cover the triggers, which are not written yet.
+
+## Trigger tests (set 1: account role rules)
+
+Run on 21-11-2026 with tests/test_triggers_1.sql. Each test sets up its own data inside BEGIN and ROLLBACK, so nothing was kept.
+
+| Test ID | Feature | Input | Expected result | Actual result | Status |
+|---|---|---|---|---|---|
+| T6 | Student account must have role student | Insert a student row linked to an account with role recruiter | Refused by trigger | ERROR: user_id in table student must belong to an account with role student, found recruiter | Passed |
+| T7 | Recruiter account must have role recruiter | Insert a recruiter row linked to an account with role student | Refused by trigger | ERROR: user_id in table recruiter must belong to an account with role recruiter, found student | Passed |
+| T8 | Company reviewer must be an admin | Approve a company with reviewed_by set to a student account | Refused by trigger | ERROR: reviewed_by in table company must belong to an account with role admin, found student | Passed |
+| T9 | Job reviewer must be an admin | Approve a job with reviewed_by set to a recruiter account | Refused by trigger | ERROR: reviewed_by in table job must belong to an account with role admin, found recruiter | Passed |
+| T10 | Role of an account in use cannot change | Change the role of an account used as a student to admin | Refused by trigger | ERROR: role of user 8 cannot change: the account is already in use as student | Passed |
+| T11 | Valid data is not blocked | Insert an admin, a student and a recruiter account, a department, a course, a student, a company approved by the admin, and a recruiter | All 8 statements accepted | 8 times INSERT 0 1, no error | Passed |
+
+Notes:
+- The identity numbers (for example user 8 in T10) are not rolled back, so ids have gaps after rolled-back tests. This is expected PostgreSQL behaviour.
+- These tests cover the five role triggers only. The insert-only and score-check triggers are not written yet, so they are not tested and not listed as passed.
+- The views are created but have not been tested with data yet.

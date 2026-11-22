@@ -65,3 +65,21 @@ Notes:
 - These tests also exercised the view v_application_current_stage with real data. The other five views are still untested.
 - Not covered by any test yet: the order of stages (for example, a rejected application returning to shortlisted is not blocked), a recruiter writing stage 1 or 6 (covered by the code, not tested), and the case is_matched false with levels that would have met the requirement. The last one belongs to the Phase 7 matching engine.
 - Identity numbers are not rolled back, so ids have gaps after rolled-back tests. This is expected PostgreSQL behaviour.
+
+## View tests
+
+Run on 22-11-2026 against the sample data (database/06 to 11). T30 to T32 are in tests/test_views_1.sql and ran inside BEGIN and ROLLBACK, so their test data was not kept. T27 to T29 are queries typed in psql against the sample data. Expected values were worked out by hand from the sample data before the queries were run.
+
+| Test ID | Feature | Input | Expected result | Actual result | Status |
+|---|---|---|---|---|---|
+| T27 | v_student_cgpa: overall CGPA is the average of the SGPAs | Query the view for all 10 sample students | Aarav 8.17 (6 semesters), Diya 8.93 (6), Sahil 6.70 (4), worked out by hand. The other 7 rows are plausible | Aarav 8.17, Diya 8.93, Sahil 6.70 matched. All 10 rows returned with 6 or 4 semesters. The other 7 values were checked against their grades afterwards | Passed |
+| T28 | v_student_skill_evidence: evidence levels and sources | Query 3 students for Python, SQL and Excel (8 rows) | Kabir Excel: declared only. Diya SQL: assessed level 3, using the later attempt (78) not the earlier (55). Aarav Python: assessed level 2, below the declared 3. Diya Python: project evidence with no level | All 8 rows matched the hand-worked table exactly | Passed |
+| T29 | v_open_jobs: students see only open approved jobs | Query the view, then list the jobs missing from it | 8 jobs shown. 4 hidden: a job pending review, a closed job, a job with a past deadline, a job of a pending company | Exactly those 8 shown and those 4 hidden | Passed |
+| T30 | v_skill_assessment_level: score boundaries | Insert scores 0, 39, 40, 64, 65, 84, 85, 100 and read their levels | 0 and 39 level 1, 40 and 64 level 2, 65 and 84 level 3, 85 and 100 level 4 | All 8 scores mapped as expected | Passed |
+| T31 | v_skill_assessment_level: one level per assessment | Compare the number of assessments with the number of rows in the view | Equal counts | 22 and 22 | Passed |
+| T32 | v_latest_job_match: newest match per student and job | Insert a July match (71.00) first and an older June match (50.00) second | The view returns one row: 71.00 on 2026-07-01 | raw_rows 2. The view returned 71.00, 2026-07-01 | Passed |
+
+Notes:
+- v_application_current_stage was tested with real data in T17 and T20 (trigger tests set 2). With these results all six views have been tested.
+- T27 to T29 were run by hand and are not saved as a test file. The three queries are reproducible from the sample data. Saving them as a script is a possible later improvement.
+- The date-based part of v_open_jobs depends on the day the sample data was loaded, because deadlines are relative to that day. T29 will give a different list once the sample deadlines pass.
